@@ -8,7 +8,8 @@
 
 CoordMode("Mouse", "Screen")
 Persistent(true)
-registerpower()
+hpn := registerpower()
+OnExit(unregisterpower.Bind(hpn))
 return
 
 ; https://www.autohotkey.com/boards/viewtopic.php?p=539708
@@ -24,7 +25,7 @@ registerpower() {
     throw (Error("CLSIDFromString failed. Error: " . Format("{:#x}", res)))
   }
 
-  if (! ;hPowerNotify :=
+  if (!hPowerNotify :=
     DllCall('RegisterPowerSettingNotification',
       'Ptr', A_ScriptHwnd,
       'Ptr', CLSID,
@@ -36,6 +37,7 @@ registerpower() {
 
   Sleep(1) ; a notification is always emitted immediately after registering for it for some reason. this prevents seeing it
   OnMessage(0x218, _WM_POWERBROADCAST)
+  return hPowerNotify
 }
 
 _WM_POWERBROADCAST(wParam, lParam, msg, hwnd) {
@@ -53,6 +55,18 @@ _WM_POWERBROADCAST(wParam, lParam, msg, hwnd) {
     oldpower := newpower
   }
   return (true)
+}
+
+unregisterpower(hPowerNotify, *) {
+  ; https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-unregisterpowersettingnotification
+  ; it returns nonzero on success, while OnExit treats nonzero as failure
+  if (!DllCall(
+    'UnregisterPowerSettingNotification',
+    'Ptr', hPowerNotify
+  )) {
+    MsgBox("Failed to unregister notification", "Nevermind")
+  }
+  return 0
 }
 
 savewins(&winmap) {
