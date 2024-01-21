@@ -6,6 +6,7 @@
 ; https://devblogs.microsoft.com/directx/avoid-unexpected-app-rearrangement/
 ; https://superuser.com/questions/1292435
 
+TraySetIcon("shell32.dll", -26)
 CoordMode("Mouse", "Screen")
 Persistent(true)
 hpn := registerpower()
