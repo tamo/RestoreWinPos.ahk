@@ -10,11 +10,6 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Prepare Ahk2Exe
-      uses: tamo/action-Ahk2Exe@main
-      with:
-        tmpdir: _ahktmp
-
     - name: Ahk2Exe (32bit)
       uses: tamo/action-Ahk2Exe@main
       with:
