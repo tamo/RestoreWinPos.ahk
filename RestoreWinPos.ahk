@@ -2,7 +2,9 @@
 #Warn
 #SingleInstance Force
 
-; A simple workaround for the Rapid HPD problem
+;@Ahk2Exe-SetName        RestoreWinPos.ahk
+;@Ahk2Exe-SetVersion     0.2
+;@Ahk2Exe-SetDescription RestoreWinPos.ahk - workaround for Rapid HPD
 ; https://devblogs.microsoft.com/directx/avoid-unexpected-app-rearrangement/
 ; https://superuser.com/questions/1292435
 
@@ -13,7 +15,7 @@ hpn := registerpower()
 OnExit(unregisterpower.Bind(hpn))
 return
 
-; https://www.autohotkey.com/boards/viewtopic.php?p=539708
+;@Ahk2Exe-SetCopyright https://www.autohotkey.com/boards/viewtopic.php?p=539708
 registerpower() {
   CLSID := Buffer(16)
   if (res :=
