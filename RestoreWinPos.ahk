@@ -88,12 +88,7 @@ savewins(&winmap) {
 
 restorewins(winmap) {
   for (this_id, d in winmap) {
-    if (this_id = "mouse") {
-      MouseMove(d.x, d.y, 0)
-      continue
-    }
-
-    if (WinExist(this_id)) {
+    if (this_id != "mouse" && WinExist(this_id)) {
       WinGetPos(&x, &y, , , this_id)
       if (d.x = x && d.y = y) {
         continue
@@ -102,6 +97,12 @@ restorewins(winmap) {
       DllCall("SetWindowPlacement", "Ptr", this_id, "Ptr", d.wp)
     }
   }
+
+  ; wait until unlocked
+  while (!WinExist("A") || WinGetProcessName("A") = "LockApp.exe") {
+    sleep 500
+  }
+  MouseMove(winmap["mouse"].x, winmap["mouse"].y, 0)
 }
 
 ; https://learn.microsoft.com/windows/win32/api/winuser/ns-winuser-windowplacement
