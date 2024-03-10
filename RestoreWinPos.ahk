@@ -125,7 +125,7 @@ restorewins(winmap) {
 
   ; wait until unlocked
   while (!WinExist("A") || WinGetProcessName("A") = "LockApp.exe") {
-    sleep 500
+    sleep(500)
   }
   MouseMove(winmap["mouse"].x, winmap["mouse"].y, 0)
   note(Format(" mouse ({},{})", winmap["mouse"].x, winmap["mouse"].y))
