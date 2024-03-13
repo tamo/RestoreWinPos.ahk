@@ -112,8 +112,13 @@ savewins(&winmap) {
   }
 
   MouseGetPos(&mx, &my)
-  winmap["mouse"] := { x: mx, y: my }
-  note(Format(" mouse ({},{})", mx, my))
+  ; MouseGetPos returns (bogus big number, 0) in POWERSETTINGCHANGE just before APMSUSPEND
+  if (my = 0 && mx >= rightedge()) {
+    note(Format(" mouse ignored ({},{})", mx, my))
+  } else {
+    winmap["mouse"] := { x: mx, y: my }
+    note(Format(" mouse ({},{})", mx, my))
+  }
 }
 
 restorewins(winmap) {
@@ -154,6 +159,16 @@ normalwp(hwnd, &x, &y) {
   x := NumGet(wp, 28, "Int")
   y := NumGet(wp, 32, "Int")
   return wp
+}
+
+rightedge() {
+  max_r := 0
+  loop (MonitorGetCount()) {
+    MonitorGet(A_Index, , , &this_r)
+    max_r := Max(max_r, this_r)
+  }
+  note(" rightedge " . max_r)
+  return max_r
 }
 
 note(txt := false) {
