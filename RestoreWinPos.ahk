@@ -144,6 +144,7 @@ restorewins(winmap) {
         note(Format(" {}({},{}) -> ({},{}) {}", ismin && "min", x, y, d.x, d.y, WinGetTitle(this_id)))
       }
       WinRestore(this_id)
+      WinRestore(this_id) ; needed twice by some apps e.g. maximized & minimized GitKraken
       DllCall("SetWindowPlacement", "Ptr", this_id, "Ptr", d.wp)
     }
   }
