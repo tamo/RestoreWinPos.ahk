@@ -8,10 +8,14 @@
 ; https://devblogs.microsoft.com/directx/avoid-unexpected-app-rearrangement/
 ; https://superuser.com/questions/1292435
 
+debug := false
+if (debug) {
+  A_TrayMenu.Add("Clear tooltip", (*) => ToolTip())
+}
 TraySetIcon("shell32.dll", -26)
 CoordMode("Mouse", "Screen")
 Persistent(true)
-debug := false
+waitinterval := 100
 registerpower()
 return
 
@@ -135,7 +139,10 @@ restorewins(winmap) {
       if (d.x = x && d.y = y) {
         continue
       }
-      note(Format(" ({},{}) -> ({},{}) {}", x, y, d.x, d.y, WinGetTitle(this_id)))
+      if (debug) {
+        ismin := (WinGetMinMax(this_id) < 0) ? normalwp(this_id, &x, &y) : ""
+        note(Format(" {}({},{}) -> ({},{}) {}", ismin && "min", x, y, d.x, d.y, WinGetTitle(this_id)))
+      }
       WinRestore(this_id)
       DllCall("SetWindowPlacement", "Ptr", this_id, "Ptr", d.wp)
     }
@@ -172,7 +179,8 @@ rightedge() {
 }
 
 note(txt := false) {
-  static logtxt := ""
+  static firstline := "You can [Clear tooltip] from the tray menu`n`n"
+  static logtxt := firstline
 
   if (!debug) {
     return
@@ -180,6 +188,6 @@ note(txt := false) {
     logtxt .= txt . "`n"
   } else {
     ToolTip(logtxt)
-    logtxt := ""
+    logtxt := firstline
   }
 }
