@@ -97,7 +97,13 @@ unregister(kind, hPowerNotify, *) {
 }
 
 savewins(&winmap) {
+  if (winmap.Has("restoring")) {
+    ; maybe getting asleep while waiting for unlocking
+    note("skip savewins")
+    return
+  }
   winmap.Clear()
+
   for (this_id in WinGetList(, , "Program Manager")) {
     if (WinExist(this_id)) {
       wp := normalwp(this_id, &x, &y)
@@ -111,8 +117,15 @@ savewins(&winmap) {
 }
 
 restorewins(winmap) {
+  ; wait until unlocked
+  ; also note that monitors can get asleep within this loop
+  winmap["restoring"] := true
+  while (!WinExist("A") || WinGetProcessName("A") = "LockApp.exe") {
+    sleep(waitinterval)
+  }
+
   for (this_id, d in winmap) {
-    if (this_id != "mouse" && WinExist(this_id)) {
+    if (IsInteger(this_id) && WinExist(this_id)) {
       WinGetPos(&x, &y, , , this_id)
       if (d.x = x && d.y = y) {
         continue
@@ -123,13 +136,15 @@ restorewins(winmap) {
     }
   }
 
-  ; wait until unlocked
-  while (!WinExist("A") || WinGetProcessName("A") = "LockApp.exe") {
-    sleep(500)
+  if (winmap.Has("mouse")) {
+    MouseMove(winmap["mouse"].x, winmap["mouse"].y, 0)
+    note(Format(" mouse ({},{})", winmap["mouse"].x, winmap["mouse"].y))
+  } else { ; should not occur
+    note(" mouse ignored")
   }
-  MouseMove(winmap["mouse"].x, winmap["mouse"].y, 0)
-  note(Format(" mouse ({},{})", winmap["mouse"].x, winmap["mouse"].y))
-  note()
+  note() ; flush
+
+  winmap.Delete("restoring")
 }
 
 ; https://learn.microsoft.com/windows/win32/api/winuser/ns-winuser-windowplacement
