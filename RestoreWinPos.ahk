@@ -108,20 +108,27 @@ savewins(&winmap) {
   }
   winmap.Clear()
 
+  ; MouseGetPos(&mx, &my) returns (bogus big number, 0) in POWERSETTINGCHANGE just before APMSUSPEND
+  ; because GetCursorPos() fails with ACCESS_DENIED but AutoHotkey ignores the failure
+  if (!DllCall("GetCursorPos", "Ptr", lppoint := Buffer(8, 0))) {
+    note(Format(" mouse ignored ({})", e := DllCall("GetLastError", "UInt")))
+    if (e = 5) {
+      note("  (5) means ACCESS_DENIED, no need to save windows in this case")
+      winmap["restoring"] := true ; can no longer get mouse position
+      return
+    }
+  } else {
+    mx := NumGet(lppoint, 0, "Int")
+    my := NumGet(lppoint, 4, "Int")
+    winmap["mouse"] := { x: mx, y: my }
+    note(Format(" mouse ({},{})", mx, my))
+  }
+
   for (this_id in WinGetList(, , "Program Manager")) {
     if (WinExist(this_id)) {
       wp := normalwp(this_id, &x, &y)
       winmap[this_id] := { x: x, y: y, wp: wp }
     }
-  }
-
-  MouseGetPos(&mx, &my)
-  ; MouseGetPos returns (bogus big number, 0) in POWERSETTINGCHANGE just before APMSUSPEND
-  if (my = 0 && mx >= rightedge()) {
-    note(Format(" mouse ignored ({},{})", mx, my))
-  } else {
-    winmap["mouse"] := { x: mx, y: my }
-    note(Format(" mouse ({},{})", mx, my))
   }
 }
 
@@ -152,7 +159,7 @@ restorewins(winmap) {
   if (winmap.Has("mouse")) {
     MouseMove(winmap["mouse"].x, winmap["mouse"].y, 0)
     note(Format(" mouse ({},{})", winmap["mouse"].x, winmap["mouse"].y))
-  } else { ; should not occur
+  } else {
     note(" mouse ignored")
   }
   note() ; flush
@@ -167,16 +174,6 @@ normalwp(hwnd, &x, &y) {
   x := NumGet(wp, 28, "Int")
   y := NumGet(wp, 32, "Int")
   return wp
-}
-
-rightedge() {
-  max_r := 0
-  loop (MonitorGetCount()) {
-    MonitorGet(A_Index, , , &this_r)
-    max_r := Max(max_r, this_r)
-  }
-  note(" rightedge " . max_r)
-  return max_r
 }
 
 note(txt := false) {
