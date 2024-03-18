@@ -3,19 +3,23 @@
 #SingleInstance Force
 
 ;@Ahk2Exe-SetName        RestoreWinPos.ahk
-;@Ahk2Exe-SetVersion     0.4
+;@Ahk2Exe-SetVersion     0.5
 ;@Ahk2Exe-SetDescription RestoreWinPos.ahk - workaround for Rapid HPD
 ; https://devblogs.microsoft.com/directx/avoid-unexpected-app-rearrangement/
 ; https://superuser.com/questions/1292435
 
-debug := false
-if (debug) {
-  A_TrayMenu.Add("Clear tooltip", (*) => ToolTip())
-}
+waitinterval := 100
+maxloglen := A_Args.Length ? Integer(A_Args[1]) : 20 ; assign 0 if you don't want log by default
+oldloglen := (maxloglen > 0) ? 0 : 20
+clearlog()
+
+A_TrayMenu.Add("Toggle log", togglelog)
+A_TrayMenu.Add("Clear log", clearlog)
+A_TrayMenu.Add("Show log", showlog)
 TraySetIcon("shell32.dll", -26)
+
 CoordMode("Mouse", "Screen")
 Persistent(true)
-waitinterval := 100
 registerpower()
 return
 
@@ -94,7 +98,7 @@ _WM_POWERBROADCAST(wParam, lParam, msg, hwnd) {
 ; they return nonzero on success, while OnExit treats nonzero as failure
 unregister(kind, hPowerNotify, *) {
   ok := DllCall("Unregister" . kind . "Notification", "Ptr", hPowerNotify)
-  if (debug && !ok) {
+  if ((maxloglen > 0) && !ok) {
     MsgBox("Failed to unregister " . kind . " notification", "Nevermind")
   }
   return 0
@@ -110,8 +114,8 @@ savewins(&winmap) {
 
   for (this_id in WinGetList(, , "Program Manager")) {
     if (WinExist(this_id)) {
-      wp := normalwp(this_id, &x, &y)
-      winmap[this_id] := { x: x, y: y, wp: wp }
+      wp := normalwp(this_id, &x, &y, &showcmd)
+      winmap[this_id] := { wp: wp, x: x, y: y, showcmd: showcmd }
     }
   }
 
@@ -137,17 +141,19 @@ restorewins(winmap) {
 
   for (this_id, d in winmap) {
     if (IsInteger(this_id) && WinExist(this_id)) {
-      WinGetPos(&x, &y, , , this_id)
-      if (d.x = x && d.y = y) {
+      normalwp(this_id, &x, &y, &showcmd)
+      if (d.x = x && d.y = y && d.showcmd = showcmd) {
         continue
       }
-      if (debug) {
-        ismin := (WinGetMinMax(this_id) < 0) ? normalwp(this_id, &x, &y) : ""
-        note(Format(" {}({},{}) -> ({},{}) {}", ismin && "min", x, y, d.x, d.y, WinGetTitle(this_id)))
-      }
       WinRestore(this_id)
-      WinRestore(this_id) ; needed twice by some apps e.g. maximized & minimized GitKraken
+      WinRestore(this_id) ; needed twice for some apps e.g. maximized & minimized GitKraken
       DllCall("SetWindowPlacement", "Ptr", this_id, "Ptr", d.wp)
+      note(Format(
+        " {}({},{}) -> {}({},{}) {}",
+        showcmdstr(showcmd), x, y,
+        showcmdstr(d.showcmd), d.x, d.y,
+        WinGetTitle(this_id)
+      ))
     }
   }
 
@@ -155,32 +161,70 @@ restorewins(winmap) {
     MouseMove(winmap["mouse"].x, winmap["mouse"].y, 0)
     note(Format(" mouse ({},{})", winmap["mouse"].x, winmap["mouse"].y))
   } else {
-    note(" mouse ignored")
+    note(" mouse has not been saved")
   }
-  note() ; flush
 
   winmap.Delete("restoring")
 }
 
 ; https://learn.microsoft.com/windows/win32/api/winuser/ns-winuser-windowplacement
-normalwp(hwnd, &x, &y) {
+normalwp(hwnd, &x, &y, &showcmd) {
   NumPut("UInt", 44, wp := Buffer(44, 0))
   DllCall("GetWindowPlacement", "Ptr", hwnd, "Ptr", wp)
+  showcmd := NumGet(wp, 8, "UInt")
   x := NumGet(wp, 28, "Int")
   y := NumGet(wp, 32, "Int")
   return wp
 }
 
-note(txt := false) {
-  static firstline := "You can [Clear tooltip] from the tray menu`n`n"
-  static logtxt := firstline
-
-  if (!debug) {
-    return
-  } else if (txt) {
-    logtxt .= txt . "`n"
-  } else {
-    ToolTip(logtxt)
-    logtxt := firstline
+; https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-showwindow
+showcmdstr(showcmd) {
+  switch(showcmd) {
+    case 0: return "hidden"
+    case 1: return ""
+    case 2: return "min"
+    case 3: return "max"
+    default: return Format("[{}]", showcmd)
   }
+}
+
+note(txt) {
+  global logtxt
+
+  if (maxloglen > 0) {
+    logtxt.Push(A_Now . ": " . txt)
+  }
+}
+
+showlog(*) {
+  global logtxt
+
+  if (maxloglen = 0) {
+    if ("Yes" = MsgBox("Enable logging?", "Logging is disabled", "YesNo")) {
+      togglelog()
+    }
+    return
+  }
+
+  t := Format("Log (last {} lines):`n", maxloglen)
+  loglen := Min(logtxt.Length, maxloglen)
+  loop (loglen) {
+    t .= logtxt[logtxt.Length - loglen + A_Index] . "`n"
+  }
+  MsgBox(t)
+}
+
+togglelog(*)
+{
+  global oldloglen, maxloglen
+
+  tmp := oldloglen
+  oldloglen := maxloglen
+  maxloglen := 1 ; to always log it
+  note("log " . ((oldloglen > 0) ? "disabled" : "enabled"))
+  maxloglen := tmp
+}
+
+clearlog(*) {
+  global logtxt := []
 }
