@@ -3,13 +3,27 @@
 #SingleInstance Force
 
 ;@Ahk2Exe-SetName        RestoreWinPos.ahk
-;@Ahk2Exe-SetVersion     0.5
+;@Ahk2Exe-SetVersion     0.6
 ;@Ahk2Exe-SetDescription RestoreWinPos.ahk - workaround for Rapid HPD
 ; https://devblogs.microsoft.com/directx/avoid-unexpected-app-rearrangement/
 ; https://superuser.com/questions/1292435
 
-waitinterval := 100
-maxloglen := A_Args.Length ? Integer(A_Args[1]) : 20 ; assign 0 if you don't want log by default
+maxloglen := (A_Args.Length > 0) ? Integer(A_Args[1]) : 0
+sleepkey := (A_Args.Length > 1) ? A_Args[2] : "disabled"
+msgnumber := (A_Args.Length > 2) ? Integer(A_Args[3]) : 0
+waitinterval := (A_Args.Length > 3) ? Integer(A_Args[4]) : 100
+if (A_Args.Length > 4) {
+  MsgBox(
+    "Usage: " . A_ScriptName . " [loglen [hotkey [msgnum [waitms]]]]`n`n"
+    " loglen: number of log lines to show (default: 0 [disabled])`n"
+    " hotkey: symbol to trigger sleep (default: disabled)`n"
+    " msgnum: number to SendMessage from another script (default: 0 [disabled])`n"
+    " waitms: miliseconds to wait between checks (default: 100)",
+    "Too many arguments"
+  )
+  ExitApp()
+}
+
 oldloglen := (maxloglen > 0) ? 0 : 20
 clearlog()
 
@@ -21,6 +35,12 @@ TraySetIcon("shell32.dll", -26)
 CoordMode("Mouse", "Screen")
 Persistent(true)
 registerpower()
+if (sleepkey != "disabled") {
+  Hotkey(sleepkey, saveandsleep, "On")
+}
+if (msgnumber > 0) {
+  OnMessage(msgnumber, receivemsg)
+}
 return
 
 registerpower() {
@@ -52,13 +72,13 @@ registerpower() {
   ; a notification is always emitted immediately after registering for it for some reason.
   ; this prevents seeing it
   Sleep(1)
+  global wins := Map()
   OnMessage(0x218, _WM_POWERBROADCAST)
 }
 
 ; https://learn.microsoft.com/windows/win32/power/wm-powerbroadcast
 _WM_POWERBROADCAST(wParam, lParam, msg, hwnd) {
   static oldpower := 1
-  static wins := Map()
 
   Critical(1000)
   switch (wParam) {
@@ -66,26 +86,27 @@ _WM_POWERBROADCAST(wParam, lParam, msg, hwnd) {
       newpower := NumGet(lParam, 20, "UChar") ; 1 (on) -> 2 (dim) -> 0 (off) -> 1 (on)
       note("monitor power " . newpower)
       switch {
-        case (oldpower and !newpower): savewins(&wins)
-        case (!oldpower and newpower): restorewins(wins)
+        case (oldpower and !newpower): savewins()
+        case (!oldpower and newpower): restorewins()
       }
       oldpower := newpower
-    case (0x4): ; PBT_APMSUSPEND
-      note("suspend")
-      ; this is after PBT_POWERSETTINGCHANGE, where savewins() fails to MouseGetPos()
-      savewins(&wins)
-      oldpower := 0
+      /*
+      case (0x4): ; PBT_APMSUSPEND (called after PBT_POWERSETTINGCHANGE)
+        note("suspend")
+        savewins()
+        oldpower := 0
+      */
     case (0x7): ; PBT_APMRESUMESUSPEND
-      note("resume (suspend)")
+      note("resume")
       if (!oldpower) {
-        restorewins(wins)
+        restorewins()
         oldpower := 1
       }
       /*
       case (0x12): ; PBT_APMRESUMEAUTOMATIC (never seen on my machine)
         note("resume (automatic)")
         if (!oldpower) {
-          restorewins(wins)
+          restorewins()
           oldpower := 1
         }
       */
@@ -104,18 +125,26 @@ unregister(kind, hPowerNotify, *) {
   return 0
 }
 
-savewins(&winmap) {
-  if (winmap.Has("restoring")) {
-    ; maybe getting asleep while waiting for unlocking
+receivemsg(wParam, *) {
+  switch (wParam) {
+    case 1: note("message 1 (save)"), savewins(true)
+    case 2: note("message 2 (restore)"), restorewins()
+    case 16: note("message 16 (sleep)"), saveandsleep()
+  }
+}
+
+savewins(force := false) {
+  global wins
+
+  if (!force && wins.Count > 0) {
     note("skip savewins")
     return
   }
-  winmap.Clear()
 
   for (this_id in WinGetList(, , "Program Manager")) {
     if (WinExist(this_id)) {
       wp := normalwp(this_id, &x, &y, &showcmd)
-      winmap[this_id] := { wp: wp, x: x, y: y, showcmd: showcmd }
+      wins[this_id] := { wp: wp, x: x, y: y, showcmd: showcmd }
     }
   }
 
@@ -126,20 +155,21 @@ savewins(&winmap) {
   } else {
     mx := NumGet(lppoint, 0, "Int")
     my := NumGet(lppoint, 4, "Int")
-    winmap["mouse"] := { x: mx, y: my }
+    wins["mouse"] := { x: mx, y: my }
     note(Format(" mouse ({},{})", mx, my))
   }
 }
 
-restorewins(winmap) {
+restorewins() {
+  global wins
+
   ; wait until unlocked
   ; also note that monitors can get asleep within this loop
-  winmap["restoring"] := true
   while (!WinExist("A") || WinGetProcessName("A") = "LockApp.exe") {
     sleep(waitinterval)
   }
 
-  for (this_id, d in winmap) {
+  for (this_id, d in wins) {
     if (IsInteger(this_id) && WinExist(this_id)) {
       normalwp(this_id, &x, &y, &showcmd)
       if (d.x = x && d.y = y && d.showcmd = showcmd) {
@@ -157,14 +187,15 @@ restorewins(winmap) {
     }
   }
 
-  if (winmap.Has("mouse")) {
-    MouseMove(winmap["mouse"].x, winmap["mouse"].y, 0)
-    note(Format(" mouse ({},{})", winmap["mouse"].x, winmap["mouse"].y))
+  if (wins.Has("mouse")) {
+    MouseGetPos(&x, &y)
+    MouseMove(wins["mouse"].x, wins["mouse"].y, 0)
+    note(Format(" mouse ({},{}) -> ({},{})", x, y, wins["mouse"].x, wins["mouse"].y))
   } else {
     note(" mouse has not been saved")
   }
 
-  winmap.Delete("restoring")
+  wins.Clear()
 }
 
 ; https://learn.microsoft.com/windows/win32/api/winuser/ns-winuser-windowplacement
@@ -179,7 +210,7 @@ normalwp(hwnd, &x, &y, &showcmd) {
 
 ; https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-showwindow
 showcmdstr(showcmd) {
-  switch(showcmd) {
+  switch (showcmd) {
     case 0: return "hidden"
     case 1: return ""
     case 2: return "min"
@@ -227,4 +258,29 @@ togglelog(*)
 
 clearlog(*) {
   global logtxt := []
+}
+
+; if you want to do call this function from other scripts, do
+;   DetectHiddenWindows(true) ; AHK without a Gui is hidden
+;   SendMessage(msgnumber, 16,,, "RestoreWinPos ahk_class AutoHotkey")
+saveandsleep(keywithmod := "") {
+  if (keywithmod) {
+    note(Format("hotkey [{}]", keywithmod))
+    ; wait till the key is up
+    try { ; keyname may be inappropriate for GetKeyState
+      thiskey := RegExReplace(keywithmod, "^\W*")
+      note(Format(" rawkey [{}]", thiskey))
+      while (GetKeyState(thiskey, "P")) {
+        Sleep (waitinterval)
+      }
+    } catch as e {
+      note(" error " e)
+    }
+  }
+
+  savewins(true)
+
+  note("suspend")
+  ; https://www.autohotkey.com/docs/v2/lib/Shutdown.htm#ExSuspend
+  DllCall("PowrProf\SetSuspendState", "Int", 0, "Int", 0, "Int", 0)
 }
