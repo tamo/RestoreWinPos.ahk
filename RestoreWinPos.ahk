@@ -18,7 +18,7 @@ if (A_Args.Length > 4) {
     " loglen: number of log lines to show (default: 0 [disabled])`n"
     " hotkey: symbol to trigger sleep (default: disabled)`n"
     " msgnum: number to SendMessage from another script (default: 0 [disabled])`n"
-    " waitms: miliseconds to wait between checks (default: 100)",
+    " waitms: milliseconds to wait between checks (default: 100)",
     "Too many arguments"
   )
   ExitApp()
