@@ -143,8 +143,7 @@ savewins(force := false) {
 
   for (this_id in WinGetList(, , "Program Manager")) {
     if (WinExist(this_id)) {
-      wp := normalwp(this_id, &x, &y, &showcmd)
-      wins[this_id] := { wp: wp, x: x, y: y, showcmd: showcmd }
+      wins[this_id] := getwindowplacement(this_id)
     }
   }
 
@@ -171,17 +170,25 @@ restorewins() {
 
   for (this_id, d in wins) {
     if (IsInteger(this_id) && WinExist(this_id)) {
-      normalwp(this_id, &x, &y, &showcmd)
-      if (d.x = x && d.y = y && d.showcmd = showcmd) {
+      c := getwindowplacement(this_id)
+      if (
+        d.flags = c.flags && d.showcmd = c.showcmd &&
+        d.showcmd != 3 &&  ; some maximized apps moves without updating wp
+        (!(d.flags & 1) || ; WPF_SETMINPOSITION
+          (d.minx = c.minx && d.miny = c.miny)
+        ) &&
+        d.maxx = c.maxx && d.maxy = c.maxy &&
+        d.x = c.x && d.y = c.y
+      ) {
         continue
       }
       WinRestore(this_id)
       WinRestore(this_id) ; needed twice for some apps e.g. maximized & minimized GitKraken
       DllCall("SetWindowPlacement", "Ptr", this_id, "Ptr", d.wp)
       note(Format(
-        " {}({},{}) -> {}({},{}) {}",
-        showcmdstr(showcmd), x, y,
-        showcmdstr(d.showcmd), d.x, d.y,
+        " {}({},{})[{},{}] -> {}({},{})[{},{}] {}",
+        showcmdstr(c.showcmd), c.x, c.y, c.maxx, c.maxy,
+        showcmdstr(d.showcmd), d.x, d.y, d.maxx, d.maxy,
         WinGetTitle(this_id)
       ))
     }
@@ -199,13 +206,20 @@ restorewins() {
 }
 
 ; https://learn.microsoft.com/windows/win32/api/winuser/ns-winuser-windowplacement
-normalwp(hwnd, &x, &y, &showcmd) {
+getwindowplacement(hwnd) {
   NumPut("UInt", 44, wp := Buffer(44, 0))
   DllCall("GetWindowPlacement", "Ptr", hwnd, "Ptr", wp)
-  showcmd := NumGet(wp, 8, "UInt")
-  x := NumGet(wp, 28, "Int")
-  y := NumGet(wp, 32, "Int")
-  return wp
+  return {
+    wp: wp,
+    flags: NumGet(wp, 4, "UInt"),
+    showcmd: NumGet(wp, 8, "UInt"),
+    minx: NumGet(wp, 12, "Int"),
+    miny: NumGet(wp, 16, "Int"),
+    maxx: NumGet(wp, 20, "Int"),
+    maxy: NumGet(wp, 24, "Int"),
+    x: NumGet(wp, 28, "Int"),
+    y: NumGet(wp, 32, "Int")
+  }
 }
 
 ; https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-showwindow
