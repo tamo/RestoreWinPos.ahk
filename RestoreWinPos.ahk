@@ -143,7 +143,7 @@ savewins(force := false) {
 
   for (this_id in WinGetList(, , "Program Manager")) {
     if (WinExist(this_id)) {
-      wins[this_id] := getwindowplacement(this_id)
+      wins[this_id] := getwinplace(this_id)
     }
   }
 
@@ -170,7 +170,7 @@ restorewins() {
 
   for (this_id, d in wins) {
     if (IsInteger(this_id) && WinExist(this_id)) {
-      c := getwindowplacement(this_id)
+      c := getwinplace(this_id)
       if (samewp(c, d)) {
         continue
       }
@@ -194,23 +194,28 @@ restorewins() {
 }
 
 ; https://learn.microsoft.com/windows/win32/api/winuser/ns-winuser-windowplacement
-getwindowplacement(hwnd) {
+getwinplace(hwnd) {
   NumPut("UInt", 44, wp := Buffer(44, 0))
   DllCall("GetWindowPlacement", "Ptr", hwnd, "Ptr", wp)
+
+  WinGetPos(&rx, &ry, &rw, &rh, hwnd)
+
   return {
     wp: wp,
     flags: NumGet(wp, 4, "UInt"),
     showcmd: showcmd := NumGet(wp, 8, "UInt"),
     minx: NumGet(wp, 12, "Int"),
     miny: NumGet(wp, 16, "Int"),
-    maxx: maxx := NumGet(wp, 20, "Int"),
-    maxy: maxy := NumGet(wp, 24, "Int"),
+    maxx: NumGet(wp, 20, "Int"),
+    maxy: NumGet(wp, 24, "Int"),
     x: x := NumGet(wp, 28, "Int"),
     y: y := NumGet(wp, 32, "Int"),
+    rx: rx,
+    ry: ry,
     title: WinGetTitle(hwnd),
     note: Format(
       "{}({},{})[{},{}]",
-      showcmdstr(showcmd), x, y, maxx, maxy
+      showcmdstr(showcmd), x, y, rx, ry
     )
   }
 }
@@ -219,7 +224,6 @@ samewp(c, d) {
   return (
     d.flags = c.flags &&
     d.showcmd = c.showcmd &&
-    d.showcmd != 3 &&  ; some maximized apps moves without updating wp
     (!(d.flags & 1) || ; WPF_SETMINPOSITION
       (
         d.minx = c.minx &&
@@ -229,7 +233,9 @@ samewp(c, d) {
     d.maxx = c.maxx &&
     d.maxy = c.maxy &&
     d.x = c.x &&
-    d.y = c.y
+    d.y = c.y &&
+    d.rx = c.rx &&
+    d.ry = c.ry
   )
 }
 
