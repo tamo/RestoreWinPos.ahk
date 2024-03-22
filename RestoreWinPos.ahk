@@ -171,33 +171,21 @@ restorewins() {
   for (this_id, d in wins) {
     if (IsInteger(this_id) && WinExist(this_id)) {
       c := getwindowplacement(this_id)
-      if (
-        d.flags = c.flags && d.showcmd = c.showcmd &&
-        d.showcmd != 3 &&  ; some maximized apps moves without updating wp
-        (!(d.flags & 1) || ; WPF_SETMINPOSITION
-          (d.minx = c.minx && d.miny = c.miny)
-        ) &&
-        d.maxx = c.maxx && d.maxy = c.maxy &&
-        d.x = c.x && d.y = c.y
-      ) {
+      if (samewp(c, d)) {
         continue
       }
       WinRestore(this_id)
       WinRestore(this_id) ; needed twice for some apps e.g. maximized & minimized GitKraken
       DllCall("SetWindowPlacement", "Ptr", this_id, "Ptr", d.wp)
-      note(Format(
-        " {}({},{})[{},{}] -> {}({},{})[{},{}] {}",
-        showcmdstr(c.showcmd), c.x, c.y, c.maxx, c.maxy,
-        showcmdstr(d.showcmd), d.x, d.y, d.maxx, d.maxy,
-        WinGetTitle(this_id)
-      ))
+      note(Format(" {} -> {} {}", c.note, d.note, c.title))
     }
   }
 
   if (wins.Has("mouse")) {
-    MouseGetPos(&x, &y)
-    MouseMove(wins["mouse"].x, wins["mouse"].y, 0)
-    note(Format(" mouse ({},{}) -> ({},{})", x, y, wins["mouse"].x, wins["mouse"].y))
+    d := wins["mouse"]
+    MouseGetPos(&cx, &cy)
+    MouseMove(d.x, d.y, 0)
+    note(Format(" mouse ({},{}) -> ({},{})", cx, cy, d.x, d.y))
   } else {
     note(" mouse has not been saved")
   }
@@ -212,14 +200,37 @@ getwindowplacement(hwnd) {
   return {
     wp: wp,
     flags: NumGet(wp, 4, "UInt"),
-    showcmd: NumGet(wp, 8, "UInt"),
+    showcmd: showcmd := NumGet(wp, 8, "UInt"),
     minx: NumGet(wp, 12, "Int"),
     miny: NumGet(wp, 16, "Int"),
-    maxx: NumGet(wp, 20, "Int"),
-    maxy: NumGet(wp, 24, "Int"),
-    x: NumGet(wp, 28, "Int"),
-    y: NumGet(wp, 32, "Int")
+    maxx: maxx := NumGet(wp, 20, "Int"),
+    maxy: maxy := NumGet(wp, 24, "Int"),
+    x: x := NumGet(wp, 28, "Int"),
+    y: y := NumGet(wp, 32, "Int"),
+    title: WinGetTitle(hwnd),
+    note: Format(
+      "{}({},{})[{},{}]",
+      showcmdstr(showcmd), x, y, maxx, maxy
+    )
   }
+}
+
+samewp(c, d) {
+  return (
+    d.flags = c.flags &&
+    d.showcmd = c.showcmd &&
+    d.showcmd != 3 &&  ; some maximized apps moves without updating wp
+    (!(d.flags & 1) || ; WPF_SETMINPOSITION
+      (
+        d.minx = c.minx &&
+        d.miny = c.miny
+      )
+    ) &&
+    d.maxx = c.maxx &&
+    d.maxy = c.maxy &&
+    d.x = c.x &&
+    d.y = c.y
+  )
 }
 
 ; https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-showwindow
