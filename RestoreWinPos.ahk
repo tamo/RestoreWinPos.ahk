@@ -3,7 +3,7 @@
 #SingleInstance Force
 
 ;@Ahk2Exe-SetName        RestoreWinPos.ahk
-;@Ahk2Exe-SetVersion     0.6
+;@Ahk2Exe-SetVersion     0.7
 ;@Ahk2Exe-SetDescription RestoreWinPos.ahk - workaround for Rapid HPD
 ; https://devblogs.microsoft.com/directx/avoid-unexpected-app-rearrangement/
 ; https://superuser.com/questions/1292435
