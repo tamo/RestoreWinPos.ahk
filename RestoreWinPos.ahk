@@ -274,7 +274,7 @@ clearlog(*) {
   global logtxt := []
 }
 
-; if you want to do call this function from other scripts, do
+; if you want to call this function from other scripts, do
 ;   DetectHiddenWindows(true) ; AHK without a Gui is hidden
 ;   SendMessage(msgnumber, 16,,, "RestoreWinPos ahk_class AutoHotkey")
 saveandsleep(keywithmod := "") {
