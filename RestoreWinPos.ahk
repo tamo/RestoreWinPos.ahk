@@ -14,10 +14,10 @@ msgnumber := (A_Args.Length > 2) ? Integer(A_Args[3]) : 0
 waitinterval := (A_Args.Length > 3) ? Integer(A_Args[4]) : 100
 if (A_Args.Length > 4) {
   MsgBox(
-    "Usage: " . A_ScriptName . " [loglen [hotkey [msgnum [waitms]]]]`n`n"
-    " loglen: number of log lines to show (default: 0 [disabled])`n"
-    " hotkey: symbol to trigger sleep (default: disabled)`n"
-    " msgnum: number to SendMessage from another script (default: 0 [disabled])`n"
+    "Usage: " . A_ScriptName . " [loglen [hotkey [msgnum [waitms]]]]`n`n" .
+    " loglen: number of log lines to show (default: 0 [disabled])`n" .
+    " hotkey: symbol to trigger sleep (default: disabled)`n" .
+    " msgnum: number to SendMessage from another script (default: 0 [disabled])`n" .
     " waitms: milliseconds to wait between checks (default: 100)",
     "Too many arguments"
   )
@@ -288,7 +288,7 @@ saveandsleep(keywithmod := "") {
         Sleep (waitinterval)
       }
     } catch as e {
-      note(" error " e)
+      note(" error " . e)
     }
   }
 
