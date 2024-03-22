@@ -198,6 +198,8 @@ getwinplace(hwnd) {
   NumPut("UInt", 44, wp := Buffer(44, 0))
   DllCall("GetWindowPlacement", "Ptr", hwnd, "Ptr", wp)
 
+  ; some apps moves without updating wp so we need to GetWindowRect too
+  ; restorewins doesn't need to WinMove, SetWindowPlacement is enough
   WinGetPos(&rx, &ry, &rw, &rh, hwnd)
 
   return {
