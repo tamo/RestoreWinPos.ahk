@@ -200,7 +200,7 @@ getwinplace(hwnd) {
 
   ; some apps moves without updating wp so we need to GetWindowRect too
   ; restorewins doesn't need to WinMove, SetWindowPlacement is enough
-  WinGetPos(&rx, &ry, &rw, &rh, hwnd)
+  WinGetPos(&rx, &ry, , , hwnd)
 
   return {
     wp: wp,
