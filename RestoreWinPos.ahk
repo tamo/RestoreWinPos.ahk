@@ -8,18 +8,42 @@
 ; https://devblogs.microsoft.com/directx/avoid-unexpected-app-rearrangement/
 ; https://superuser.com/questions/1292435
 
-maxloglen := (A_Args.Length > 0) ? Integer(A_Args[1]) : 0
-sleepkey := (A_Args.Length > 1) ? A_Args[2] : "disabled"
-msgnumber := (A_Args.Length > 2) ? Integer(A_Args[3]) : 0
-waitinterval := (A_Args.Length > 3) ? Integer(A_Args[4]) : 100
-if (A_Args.Length > 4) {
+; default values
+maxloglen := 0
+sleepkey := "disabled"
+msgnumber := 0
+waitinterval := 100
+
+try {
+  if (A_Args.Length > 4) {
+    throw IndexError("Too many arguments")
+  } else {
+    ; goto sucks but AHK doesn't fall-through switch-cases
+    Goto(String(A_Args.Length))
+4:
+    waitinterval := Integer(A_Args[4])
+3:
+    msgnumber := Integer(A_Args[3])
+2:
+    sleepkey := A_Args[2]
+1:
+    maxloglen := Integer(A_Args[1])
+0:
+    if (sleepkey != "disabled") {
+      Hotkey(sleepkey, saveandsleep, "On")
+    }
+    if (msgnumber > 0) {
+      OnMessage(msgnumber, receivemsg)
+    }
+  }
+} catch as argserror {
   MsgBox(
     "Usage: " . A_ScriptName . " [loglen [hotkey [msgnum [waitms]]]]`n`n" .
     " loglen: number of log lines to show (default: 0 [disabled])`n" .
     " hotkey: symbol to trigger sleep (default: disabled)`n" .
     " msgnum: number to SendMessage from another script (default: 0 [disabled])`n" .
     " waitms: milliseconds to wait between checks (default: 100)",
-    "Too many arguments"
+    Format("{}: {}", Type(argserror), argserror.Message)
   )
   ExitApp()
 }
@@ -27,6 +51,9 @@ if (A_Args.Length > 4) {
 oldloglen := (maxloglen > 0) ? 0 : 20
 clearlog()
 
+A_TrayMenu.Add()
+A_TrayMenu.Add("Locate windows", showallwins)
+A_TrayMenu.Add()
 A_TrayMenu.Add("Toggle log", togglelog)
 A_TrayMenu.Add("Clear log", clearlog)
 A_TrayMenu.Add("Show log", showlog)
@@ -35,12 +62,6 @@ TraySetIcon("shell32.dll", -26)
 CoordMode("Mouse", "Screen")
 Persistent(true)
 registerpower()
-if (sleepkey != "disabled") {
-  Hotkey(sleepkey, saveandsleep, "On")
-}
-if (msgnumber > 0) {
-  OnMessage(msgnumber, receivemsg)
-}
 return
 
 registerpower() {
@@ -273,6 +294,17 @@ showcmdstr(showcmd) {
     case 3: return "max"
     default: return Format("[{}]", showcmd)
   }
+}
+
+showallwins(*) {
+  t := "All windows:`n"
+  for (this_id in WinGetList(, , "Program Manager")) {
+    if (WinExist(this_id)) {
+      p := getwinplace(this_id)
+      t .= Format(" {} {}`n", p.note, p.title)
+    }
+  }
+  MsgBox(t)
 }
 
 note(txt) {
