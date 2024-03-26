@@ -194,6 +194,28 @@ restorewins() {
   wins.Clear()
 }
 
+saveandsleep(keywithmod := "") {
+  if (keywithmod) {
+    note(Format("hotkey [{}]", keywithmod))
+    ; wait till the key is up
+    try { ; keyname may be inappropriate for GetKeyState
+      thiskey := RegExReplace(keywithmod, "^\W*")
+      note(Format(" rawkey [{}]", thiskey))
+      while (GetKeyState(thiskey, "P")) {
+        Sleep (waitinterval)
+      }
+    } catch as e {
+      note(Format(" error {}: {}", Type(e), e.Message))
+    }
+  }
+
+  savewins(true)
+
+  note("suspend")
+  ; https://www.autohotkey.com/docs/v2/lib/Shutdown.htm#ExSuspend
+  DllCall("PowrProf\SetSuspendState", "Int", 0, "Int", 0, "Int", 0)
+}
+
 ; https://learn.microsoft.com/windows/win32/api/winuser/ns-winuser-windowplacement
 getwinplace(hwnd) {
   NumPut("UInt", 44, wp := Buffer(44, 0))
@@ -292,29 +314,4 @@ togglelog(*)
 
 clearlog(*) {
   global logtxt := []
-}
-
-; if you want to call this function from other scripts, do
-;   DetectHiddenWindows(true) ; AHK without a Gui is hidden
-;   SendMessage(msgnumber, 16,,, "RestoreWinPos ahk_class AutoHotkey")
-saveandsleep(keywithmod := "") {
-  if (keywithmod) {
-    note(Format("hotkey [{}]", keywithmod))
-    ; wait till the key is up
-    try { ; keyname may be inappropriate for GetKeyState
-      thiskey := RegExReplace(keywithmod, "^\W*")
-      note(Format(" rawkey [{}]", thiskey))
-      while (GetKeyState(thiskey, "P")) {
-        Sleep (waitinterval)
-      }
-    } catch as e {
-      note(" error " . e)
-    }
-  }
-
-  savewins(true)
-
-  note("suspend")
-  ; https://www.autohotkey.com/docs/v2/lib/Shutdown.htm#ExSuspend
-  DllCall("PowrProf\SetSuspendState", "Int", 0, "Int", 0, "Int", 0)
 }
