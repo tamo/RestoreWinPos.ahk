@@ -147,6 +147,7 @@ savewins(force := false) {
     }
   }
 
+  ; until AHK 2.1 (https://github.com/AutoHotkey/AutoHotkey/commit/a776e8387f6a3bb50a6dcccbc525de0128615c5a)
   ; MouseGetPos(&mx, &my) returns (bogus big number, 0) in POWERSETTINGCHANGE just before APMSUSPEND
   ; because GetCursorPos() fails with ACCESS_DENIED but AutoHotkey ignores the failure
   if (!DllCall("GetCursorPos", "Ptr", lppoint := Buffer(8, 0))) {
