@@ -13,21 +13,15 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Ahk2Exe (32bit)
-      uses: tamo/action-Ahk2Exe@main
+    - name: Ahk2Exe
+      uses: tamo/action-Ahk2Exe@multifile
       with:
+        base: AutoHotkey32.exe,AutoHotkey64.exe
         src: RestoreWinPos.ahk
 
-    - run: ls RestoreWinPos.exe
-
-    - name: Ahk2Exe (64bit)
-      uses: tamo/action-Ahk2Exe@main
-      with:
-        src: RestoreWinPos.ahk
-        base: _ahktmp/AutoHotkey64.exe
-        opt: /out RestoreWinPos64.exe
-
-    - run: ls RestoreWinPos64.exe
+    - run: |
+        mv RestoreWinPos32.exe RestoreWinPos.exe
+        ls RestoreWinPos64.exe
 
     - name: Save artifacts
       uses: actions/upload-artifact@v4
